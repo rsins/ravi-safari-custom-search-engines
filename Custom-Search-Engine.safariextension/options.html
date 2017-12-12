@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+	<style>
+		table {
+		    font-family: arial, sans-serif;
+		    border-collapse: collapse;
+		    width: 100%;
+		}
+		
+		td, th {
+		    border: 1px solid #dddddd;
+		    text-align: left;
+		    padding: 8px;
+		}
+		
+		tr:nth-child(even) {
+		    background-color: #dddddd;
+		}
+
+		button, input[type="file"] {
+			height: 25px;
+		}
+
+		input[type="text"] {
+        	width: 100%;
+		}
+	</style>
+  </head>
+
+  <body>
+
+    <form>
+    	<div>Enter your search engine details for custom search engine plugin below:<br>&nbsp;</div>
+        <div id="preferences"></div>
+        <div id="message"></div>
+        <div id="buttonsBlock" style="width:700px">
+        	<button type="button" id="add">Add Row</button>
+        	<button type="button" id="delete">Delete Rows</button>
+        	<button type="submit">Save Preferences</button>
+        	<button type="button" id="reset">Reset Preferences</button>
+        	<button type="button" id="loadPopular">Load Popular Search Engines</button>
+        </div>
+        <div>
+          <br>
+          <lable style="font-weight: bold">Load From File: <input type="file" id="inputPrefFileButton"/></lable>
+          <button type="button" id="loadInputPrefFileButton">Load from File</button>
+          <br>
+          (Above data will be merged & overwritted by data from file based on 'Key'. Empty 'Key' fields will be ignored.)
+          <br>
+          <br>
+          <lable style="font-weight: bold">Show Saved Preference Text which can be store to file:
+            <button type="button" id="showPrefDataButton"></button>
+          </label>
+          <div id="outputPrefFileBlock" style="font-weight: normal; font-style: italic">
+          	Click on the text area then press Ctrl-A (or Cmd-A) to select all, Ctrl-C (or Cmd-C) to copy.
+          	<br>
+          	<textarea readOnly=true style='width: 700px; height: 200px;' id="outputPrefFile"></textarea>
+          </div>
+        </div>
+    </form>
+
+    <script src="utils.js"></script>
+    <script src="options.js"></script>
+
+  </body>
+
+</html>
