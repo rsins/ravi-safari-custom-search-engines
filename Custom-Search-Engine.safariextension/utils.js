@@ -43,3 +43,15 @@ function getPopularSearchEngineData() {
 function resolveValue(curObj, name) {
   return (curObj.hasOwnProperty(name)) ? curObj[name] : "";
 }
+
+function strReplaceAll(str, toReplace, replacement) {
+  return str.split(toReplace).join(replacement);
+}
+
+String.prototype.trimChars = function(chars) {
+  var l = 0;
+  var r = this.length-1;
+  while(chars.indexOf(this[l]) >= 0 && l < r) l++;
+  while(chars.indexOf(this[r]) >= 0 && r >= l) r--;
+  return this.substring(l, r+1);
+};

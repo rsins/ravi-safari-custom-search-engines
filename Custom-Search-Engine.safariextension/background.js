@@ -48,8 +48,10 @@ function getMatchingSearchCategoriesForInputCategory(searchCategory) {
     var newSearchCategory = searchCategory.substring(1, searchCategory.length);
     for (var key in searchEngines) {
       var searchEngObj = searchEngines[key];
-      var cat = resolveValue(searchEngObj,"category");
-      if (cat.startsWith(newSearchCategory)) categories.add(cat);
+      var catArr = resolveValue(searchEngObj,"category").split(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
+      for (let idx in catArr) {
+        if (catArr[idx].startsWith(newSearchCategory)) categories.add(catArr[idx]);
+      }
     }
   }
 
@@ -81,8 +83,8 @@ function getSearchEngineKeysForInputCategory(searchCategory) {
       let curCategory = matchingCategories[0];
       for (var key in searchEngines) {
         var searchEngObj = searchEngines[key];
-        var cat = resolveValue(searchEngObj,"category");
-        if (cat == curCategory) searchKeys.push(key);
+        var catArr = resolveValue(searchEngObj,"category").split(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
+        if (catArr.includes(curCategory)) searchKeys.push(key);
       }
     }
   }
@@ -120,10 +122,6 @@ function buildSearchURL(text) {
   }
 
   return null;
-}
-
-function strReplaceAll(str, toReplace, replacement) {
-  return str.split(toReplace).join(replacement);
 }
 
 function buildUrlForSplitWordSearch(searchUrl, fullQueryText) {
@@ -289,13 +287,32 @@ function buildUrlsForSearchKeys(searchEngineKeys, queryText) {
   return searchEngineUrls;
 }
 
+// Assume that input is comma seperated list of categories from user.
+function getSearchKeysFor_MultiCategories(categoriesStr) {
+  let searchEngineKeys = new Set();
+  if (! categoriesStr.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) return Array.from(searchEngineKeys);
+
+  categoriesStr = categoriesStr.substring(1, categoriesStr.length);
+  categoriesStr = categoriesStr.trimChars(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
+  categoriesStr = strReplaceAll(categoriesStr, CHAR_SEPARATOR_FOR_MULTI_SEARCH + CHAR_SEPARATOR_FOR_MULTI_SEARCH, CHAR_SEPARATOR_FOR_MULTI_SEARCH);
+  let catSet = new Set(categoriesStr.split(CHAR_SEPARATOR_FOR_MULTI_SEARCH));
+  let catArr = Array.from(catSet);
+
+  for (let idx in catArr) {
+    let keys = getSearchEngineKeysForInputCategory(CHAR_GROUP_NAME_START_IDENTIFIER + catArr[idx]);
+    keys.forEach(searchEngineKeys.add, searchEngineKeys);
+  }
+
+  return Array.from(searchEngineKeys);
+}
+
 function beforeSearch_BuildUrls(queryText) {
   // Array of objects {"url" : url, "position" : <position>}
   var searchEngineUrls = [];
   if (text.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) {
     // For category driven search
     var input = splitInputTextForSearch(text)
-    var searchEngineKeys = getSearchEngineKeysForInputCategory(input.searchEngine);
+    var searchEngineKeys = getSearchKeysFor_MultiCategories(input.searchEngine);
     searchEngineUrls = buildUrlsForSearchKeys(searchEngineKeys, input.queryText);
   }
   else if (multiSearchDisabled) {
@@ -304,7 +321,7 @@ function beforeSearch_BuildUrls(queryText) {
   }
   else {
     var input = splitInputTextForSearch(queryText)
-    var searchEngineKeys = input.searchEngine.split(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
+    var searchEngineKeys = Array.from(new Set(input.searchEngine.split(CHAR_SEPARATOR_FOR_MULTI_SEARCH)));
     searchEngineUrls = buildUrlsForSearchKeys(searchEngineKeys, input.queryText);
   }
   return searchEngineUrls;
