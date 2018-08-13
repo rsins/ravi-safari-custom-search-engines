@@ -21,6 +21,75 @@ function splitInputTextForSearch(text) {
   return result;
 }
 
+// If user search key is category then return matching list of search categories.
+function getMatchingSearchCategoriesForInputCategory(searchCategory) {
+  if (! searchCategory.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) return;
+  let categories = new Set();
+
+  if (searchCategory == CHAR_GROUP_NAME_START_IDENTIFIER) {
+    // Pick all the search engines.
+    for (var key in searchEngines) {
+      let cat = resolveValue(searchEngines[key], "category");
+      categories.add(cat);
+    }
+  }
+  else if (searchCategory == (CHAR_GROUP_NAME_START_IDENTIFIER + CHAR_GROUP_NAME_START_IDENTIFIER)) {
+    // Pick the search engines with blank/empty category
+    for (var key in searchEngines) {
+      let cat = resolveValue(searchEngines[key], "category");
+      if (cat == "") {
+        // Need to check if there is at least one empty search category.
+        categories.add(cat);
+        break;
+      }
+    }
+  }
+  else if (searchCategory.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) {
+    var newSearchCategory = searchCategory.substring(1, searchCategory.length);
+    for (var key in searchEngines) {
+      var searchEngObj = searchEngines[key];
+      var cat = resolveValue(searchEngObj,"category");
+      if (cat.startsWith(newSearchCategory)) categories.add(cat);
+    }
+  }
+
+  return Array.from(categories);
+}
+
+// If user search key is a category then it return the matching list of search keys for given category
+function getSearchEngineKeysForInputCategory(searchCategory) {
+  if (! searchCategory.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) return;
+  var searchKeys = [];
+
+  if (searchCategory == CHAR_GROUP_NAME_START_IDENTIFIER) {
+    // Pick all the search engines.
+    for (var key in searchEngines) {
+      searchKeys.push(key);
+    }
+  }
+  else if (searchCategory == (CHAR_GROUP_NAME_START_IDENTIFIER + CHAR_GROUP_NAME_START_IDENTIFIER)) {
+    // Pick the search engines with blank/empty category
+    for (var key in searchEngines) {
+      var searchEngObj = searchEngines[key];
+      if (resolveValue(searchEngObj,"category") == "") searchKeys.push(key);
+    }
+  }
+  else {
+    // Pick the search engines matching category. If there is only one category then pick that one.
+    var matchingCategories = getMatchingSearchCategoriesForInputCategory(searchCategory);
+    if (matchingCategories.length == 1) {
+      let curCategory = matchingCategories[0];
+      for (var key in searchEngines) {
+        var searchEngObj = searchEngines[key];
+        var cat = resolveValue(searchEngObj,"category");
+        if (cat == curCategory) searchKeys.push(key);
+      }
+    }
+  }
+
+  return searchKeys;
+}
+
 // Build Search Url based on user input
 function buildSearchURL(text) {
   if (text.toLowerCase().startsWith("http://") || text.toLowerCase().startsWith("https://")) return `${text}`;
@@ -190,10 +259,11 @@ function onGotPreferences(item) {
   for (var key in searchEngines) {
     if (key.includes(CHAR_SEPARATOR_FOR_MULTI_SEARCH)) {
       multiSearchDisabled = true;
-      break;
     }
+    let curSearchObj = preferences[key];
+    // Handle new preference property 'category'
+    curSearchObj["category"] = resolveValue(curSearchObj, "category");
   }
-
 }
 
 // Read preferences from storage
@@ -203,54 +273,76 @@ function getSearchEnginesFromPreferences() {
   else onGotPreferences(JSON.parse(preferences));
 }
 
+function buildUrlsForSearchKeys(searchEngineKeys, queryText) {
+  var searchEngineUrls = [];
+  var isFirstSearch = true;
+  for (var keyIdx in searchEngineKeys) {
+    var searchKey = searchEngineKeys[keyIdx];
+    if (searchKey.length != 0) {
+      var url = buildSearchURL(searchEngineKeys[keyIdx] + " " + queryText);
+      if (url) {
+        searchEngineUrls.push({"url": url, "position": (isFirstSearch) ? 0 : searchEngineUrls.length});
+        isFirstSearch = false;
+      }
+    }
+  }
+  return searchEngineUrls;
+}
+
+function beforeSearch_BuildUrls(queryText) {
+  // Array of objects {"url" : url, "position" : <position>}
+  var searchEngineUrls = [];
+  if (text.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) {
+    // For category driven search
+    var input = splitInputTextForSearch(text)
+    var searchEngineKeys = getSearchEngineKeysForInputCategory(input.searchEngine);
+    searchEngineUrls = buildUrlsForSearchKeys(searchEngineKeys, input.queryText);
+  }
+  else if (multiSearchDisabled) {
+    let url = buildSearchURL(queryText);
+    if (url) searchEngineUrls.push({"url": url, "position": 0});
+  }
+  else {
+    var input = splitInputTextForSearch(queryText)
+    var searchEngineKeys = input.searchEngine.split(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
+    searchEngineUrls = buildUrlsForSearchKeys(searchEngineKeys, input.queryText);
+  }
+  return searchEngineUrls;
+}
+
+function beforeSearch_OpenUrls(e, searchEngineUrls) {
+  if (searchEngineUrls.length == 0) return;
+
+  while (searchEngineUrls.length > 0) {
+    var seUrl = searchEngineUrls.pop();
+    var url = seUrl.url;
+    var curPosition = seUrl.position;
+    if (!url) return;
+    if (curPosition == 0) {
+      e.preventDefault();
+      e.target.url = url;
+    }
+    else {
+      nextIndex = safari.application.activeBrowserWindow.tabs.indexOf(safari.application.activeBrowserWindow.activeTab) + 1
+      safari.application.activeBrowserWindow.openTab("background", nextIndex).url = url;
+    }
+  }
+}
+
+function beforeSearch(e) {
+  let mainInput = splitInputTextForSearch(e.query);
+  // Must start with extension key
+  if (mainInput.searchEngine != SEARCH_EXTENSION_KEY) return;
+
+  var searchEngineUrls = beforeSearch_BuildUrls(mainInput.queryText);
+  beforeSearch_OpenUrls(e, searchEngineUrls);
+}
+
 // Main function which loads the plugin functionality
 function main() {
   pluginLoadData();
 
-  safari.application.addEventListener('beforeSearch', function(e) {
-    let mainInput = splitInputTextForSearch(e.query);
-    // Must start with extension key
-    if (mainInput.searchEngine != SEARCH_EXTENSION_KEY) return;
-
-    // Array of objects {"url" : url, "position" : <position>}
-    var searchEngineUrls = [];
-    if (multiSearchDisabled) {
-      let url = buildSearchURL(mainInput.queryText);
-      if (url) searchEngineUrls.push({"url": url, "position": 0});
-    }
-    else {
-      var input = splitInputTextForSearch(mainInput.queryText)
-      var searchEngineKeys = input.searchEngine.split(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
-      var isFirstSearch = true;
-      for (var keyIdx in searchEngineKeys) {
-        var searchKey = searchEngineKeys[keyIdx];
-        if (searchKey.length != 0) {
-          var url = buildSearchURL(searchEngineKeys[keyIdx] + " " + input.queryText);
-          if (url) {
-            searchEngineUrls.push({"url": url, "position": (isFirstSearch) ? 0 : searchEngineUrls.length});
-            isFirstSearch = false;
-          }
-        }
-      }
-    }
-
-    if (searchEngineUrls.length == 0) return;
-
-    while (searchEngineUrls.length > 0) {
-      var seUrl = searchEngineUrls.pop();
-      var url = seUrl.url;
-      var curPosition = seUrl.position;
-      if (!url) return;
-      if (curPosition == 0) {
-        e.preventDefault();
-        e.target.url = url;
-      }
-      else {
-        nextIndex = safari.application.activeBrowserWindow.tabs.indexOf(safari.application.activeBrowserWindow.activeTab) + 1
-        safari.application.activeBrowserWindow.openTab("background", nextIndex).url = url;
-      }
-    }
-  });
+  safari.application.addEventListener('beforeSearch', beforeSearch);
 
   safari.application.addEventListener('message', function(evt) {
     if (evt.name == 'SearchPreferenceStore') {
