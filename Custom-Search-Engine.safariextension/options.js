@@ -261,7 +261,7 @@ function parseAndShowCurrentData(result) {
   document.querySelector("#preferences").innerHTML = htmlTable;
 
   preferenceRowCount = rowNum;
-  document.querySelector("#F00").addEventListener("click", selectAllDeletePreferenceRow);
+  document.querySelector("#F00").addEventListener("click", selectAllVisibleDeletePreferenceRow);
 
   // Comparator for preference table
   function getClickSortFunction(objId, propName) {
@@ -306,12 +306,22 @@ function restoreOptions() {
   sortOrderOfPrefColById = {};
 }
 
-function selectAllDeletePreferenceRow() {
+function selectAllVisibleDeletePreferenceRow() {
   var chkBoxMain = document.querySelector("#F00");
   for (var count = 1; count <= preferenceRowCount; count++) {
     var chkBox = document.querySelector("#F" + count + "0");
-    if (chkBox) chkBox.checked = chkBoxMain.checked;
+    if (chkBox && chkBox.closest("tr").style.display != "none") chkBox.checked = chkBoxMain.checked;
   }
+}
+
+function setMainDeletePrefCheckBoxBasedOnVisibility() {
+  var allVisibleChecked = true;
+  var chkBoxMain = document.querySelector("#F00");
+  for (var count = 1; count <= preferenceRowCount; count++) {
+    var chkBox = document.querySelector("#F" + count + "0");
+    if (chkBox && chkBox.closest("tr").style.display != "none") allVisibleChecked = (allVisibleChecked & chkBox.checked);
+  }
+  chkBoxMain.checked = allVisibleChecked;
 }
 
 function resetPreferences() {
@@ -452,7 +462,7 @@ function resetFields() {
   var chkBoxMain = document.querySelector("#F00");
   if (chkBoxMain) {
     chkBoxMain.checked = false;
-    selectAllDeletePreferenceRow();
+    selectAllVisibleDeletePreferenceRow();
   }
 }
 
