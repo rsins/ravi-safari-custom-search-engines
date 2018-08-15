@@ -250,23 +250,24 @@ function pluginLoadData() {
   getSearchEnginesFromPreferences();
 }
 
-function onGotPreferences(item) {
-  multiSearchDisabled = false;
-  if (item[SEARCH_PREFERENCE_KEY]) searchEngines = item[SEARCH_PREFERENCE_KEY];
-
-  for (var key in searchEngines) {
-    if (key.includes(CHAR_SEPARATOR_FOR_MULTI_SEARCH)) {
-      multiSearchDisabled = true;
-    }
-    let curSearchObj = preferences[key];
-    // Handle new preference property 'category'
-    curSearchObj["category"] = resolveValue(curSearchObj, "category");
-  }
-}
-
 // Read preferences from storage
 function getSearchEnginesFromPreferences() {
   var preferences = safari.extension.settings.customSearchSettings;
+
+  function onGotPreferences(item) {
+    multiSearchDisabled = false;
+    if (item[SEARCH_PREFERENCE_KEY]) searchEngines = item[SEARCH_PREFERENCE_KEY];
+
+    for (var key in searchEngines) {
+      if (key.includes(CHAR_SEPARATOR_FOR_MULTI_SEARCH)) {
+        multiSearchDisabled = true;
+      }
+      let curSearchObj = preferences[key];
+      // Handle new preference property 'category'
+      if (curSearchObj != undefined && curSearchObj != null) curSearchObj["category"] = resolveValue(curSearchObj, "category");
+    }
+  }
+
   if (preferences == null) onGotPreferences(JSON.parse("{}"));
   else onGotPreferences(JSON.parse(preferences));
 }
