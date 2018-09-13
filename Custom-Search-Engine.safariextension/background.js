@@ -26,7 +26,7 @@ function getMatchingSearchCategoriesForInputCategory(searchCategory) {
   if (! searchCategory.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) return;
   let categories = new Set();
 
-  iif (searchCategory == CHAR_GROUP_NAME_START_IDENTIFIER) {
+  if (searchCategory == CHAR_GROUP_NAME_START_IDENTIFIER) {
     // Pick all the search engines.
     for (var key in searchEngines) {
       var catArr = resolveValue(searchEngines[key],"category").split(CHAR_SEPARATOR_FOR_MULTI_SEARCH);
@@ -250,23 +250,26 @@ function pluginLoadData() {
   getSearchEnginesFromPreferences();
 }
 
+// Process and populate the preferences object
+function onGotPreferences(item) {
+  var preferences = safari.extension.settings.customSearchSettings;
+  preferences = (preferences == null) ? JSON.parse("{}") : preferences;
+  multiSearchDisabled = false;
+  if (item[SEARCH_PREFERENCE_KEY]) searchEngines = item[SEARCH_PREFERENCE_KEY];
+
+  for (var key in searchEngines) {
+    if (key.includes(CHAR_SEPARATOR_FOR_MULTI_SEARCH)) {
+      multiSearchDisabled = true;
+    }
+    let curSearchObj = preferences[key];
+    // Handle new preference property 'category'
+    if (curSearchObj != undefined && curSearchObj != null) curSearchObj["category"] = resolveValue(curSearchObj, "category");
+  }
+}
+
 // Read preferences from storage
 function getSearchEnginesFromPreferences() {
   var preferences = safari.extension.settings.customSearchSettings;
-
-  function onGotPreferences(item) {
-    multiSearchDisabled = false;
-    if (item[SEARCH_PREFERENCE_KEY]) searchEngines = item[SEARCH_PREFERENCE_KEY];
-
-    for (var key in searchEngines) {
-      if (key.includes(CHAR_SEPARATOR_FOR_MULTI_SEARCH)) {
-        multiSearchDisabled = true;
-      }
-      let curSearchObj = preferences[key];
-      // Handle new preference property 'category'
-      if (curSearchObj != undefined && curSearchObj != null) curSearchObj["category"] = resolveValue(curSearchObj, "category");
-    }
-  }
 
   if (preferences == null) onGotPreferences(JSON.parse("{}"));
   else onGotPreferences(JSON.parse(preferences));
@@ -310,9 +313,9 @@ function getSearchKeysFor_MultiCategories(categoriesStr) {
 function beforeSearch_BuildUrls(queryText) {
   // Array of objects {"url" : url, "position" : <position>}
   var searchEngineUrls = [];
-  if (text.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) {
+  if (queryText.startsWith(CHAR_GROUP_NAME_START_IDENTIFIER)) {
     // For category driven search
-    var input = splitInputTextForSearch(text)
+    var input = splitInputTextForSearch(queryText)
     var searchEngineKeys = getSearchKeysFor_MultiCategories(input.searchEngine);
     searchEngineUrls = buildUrlsForSearchKeys(searchEngineKeys, input.queryText);
   }
